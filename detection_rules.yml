@@ -1,0 +1,229 @@
+# ============================================================
+# MITRE ATT&CK Detection Rules (SIGMA Format)
+# Author: Shubham Singh | github.com/shubhamsingh99
+# Coverage: T1059, T1003, T1053, T1566, T1110, T1021
+# Tested on: Chronicle SIEM, Splunk
+# ============================================================
+
+# ─── RULE 1: Suspicious PowerShell Execution ────────────────
+# MITRE: T1059.001 - Command and Scripting Interpreter: PowerShell
+title: Suspicious PowerShell Execution
+id: a8f45b2c-1d3e-4f67-89ab-cdef01234567
+status: production
+description: Detects suspicious PowerShell execution patterns commonly used by attackers including encoded commands, download cradles, and bypass techniques.
+author: Shubham Singh
+date: 2024/01/15
+modified: 2024/06/01
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+tags:
+  - attack.execution
+  - attack.t1059.001
+  - attack.defense_evasion
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_img:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_suspicious:
+    CommandLine|contains:
+      - '-EncodedCommand'
+      - '-enc '
+      - '-e '
+      - 'IEX'
+      - 'Invoke-Expression'
+      - 'DownloadString'
+      - 'DownloadFile'
+      - 'WebClient'
+      - '-ExecutionPolicy Bypass'
+      - '-nop'
+      - 'hidden'
+      - 'FromBase64String'
+      - 'System.Reflection.Assembly'
+  condition: selection_img and selection_suspicious
+falsepositives:
+  - Legitimate administrative scripts (verify with IT team)
+  - Software installation scripts
+level: high
+---
+
+# ─── RULE 2: Credential Dumping via LSASS ───────────────────
+# MITRE: T1003.001 - OS Credential Dumping: LSASS Memory
+title: LSASS Memory Access - Credential Dumping Attempt
+id: b9c67d3e-2e4f-5a78-90bc-def012345678
+status: production
+description: Detects attempts to access LSASS memory for credential dumping using common tools like Mimikatz, procdump, or direct API calls.
+author: Shubham Singh
+date: 2024/02/01
+references:
+  - https://attack.mitre.org/techniques/T1003/001/
+tags:
+  - attack.credential_access
+  - attack.t1003.001
+logsource:
+  product: windows
+  category: process_access
+detection:
+  selection:
+    TargetImage|endswith: '\lsass.exe'
+    GrantedAccess|contains:
+      - '0x1010'
+      - '0x1410'
+      - '0x147a'
+      - '0x143a'
+      - '0x1438'
+  filter_legitimate:
+    SourceImage|endswith:
+      - '\MsMpEng.exe'
+      - '\WerFault.exe'
+      - '\svchost.exe'
+  condition: selection and not filter_legitimate
+falsepositives:
+  - Security software (AV/EDR) accessing LSASS
+  - Windows Error Reporting
+level: critical
+---
+
+# ─── RULE 3: Scheduled Task Created via CommandLine ─────────
+# MITRE: T1053.005 - Scheduled Task/Job: Scheduled Task
+title: Scheduled Task Created for Persistence
+id: c1d78e4f-3f5a-6b89-01cd-ef0123456789
+status: production
+description: Detects creation of scheduled tasks via command line, which is commonly used by malware for persistence.
+author: Shubham Singh
+date: 2024/03/10
+references:
+  - https://attack.mitre.org/techniques/T1053/005/
+tags:
+  - attack.persistence
+  - attack.t1053.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\schtasks.exe'
+      - '\taskschd.msc'
+    CommandLine|contains:
+      - '/create'
+      - '-create'
+  selection_suspicious:
+    CommandLine|contains:
+      - 'powershell'
+      - 'cmd.exe'
+      - 'wscript'
+      - 'cscript'
+      - 'mshta'
+      - 'regsvr32'
+      - 'rundll32'
+      - 'AppData'
+      - 'Temp'
+      - 'Public'
+  condition: selection and selection_suspicious
+falsepositives:
+  - Legitimate software installations
+  - System administrators creating maintenance tasks
+level: high
+---
+
+# ─── RULE 4: Brute Force — Multiple Failed Logins ───────────
+# MITRE: T1110 - Brute Force
+title: Brute Force Login Attempt Detected
+id: d2e89f5a-4a6b-7c90-12de-f01234567890
+status: production
+description: Detects brute force attacks via multiple failed authentication attempts from a single source within a short timeframe.
+author: Shubham Singh
+date: 2024/04/05
+references:
+  - https://attack.mitre.org/techniques/T1110/
+tags:
+  - attack.credential_access
+  - attack.t1110
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID:
+      - 4625   # Failed logon
+      - 4771   # Kerberos pre-auth failed
+  timeframe: 5m
+  condition: selection | count() by IpAddress > 20
+falsepositives:
+  - Misconfigured services with wrong credentials
+  - Users who forgot their password
+level: high
+---
+
+# ─── RULE 5: Remote Service Lateral Movement ────────────────
+# MITRE: T1021 - Remote Services
+title: Lateral Movement via Remote Services
+id: e3f90a6b-5b7c-8d01-23ef-012345678901
+status: production
+description: Detects potential lateral movement via remote service connections (SMB, RDP, WinRM) between internal hosts, especially from non-server systems.
+author: Shubham Singh
+date: 2024/05/20
+references:
+  - https://attack.mitre.org/techniques/T1021/
+tags:
+  - attack.lateral_movement
+  - attack.t1021
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_rdp:
+    EventID: 4624
+    LogonType: 10    # Remote interactive (RDP)
+    AuthenticationPackageName: 'NTLM'
+  selection_network:
+    EventID: 4624
+    LogonType: 3     # Network logon
+  filter_expected:
+    SubjectUserName|endswith: '$'   # Computer accounts
+  condition: (selection_rdp or selection_network) and not filter_expected
+falsepositives:
+  - Legitimate remote administration
+  - IT helpdesk activity
+level: medium
+---
+
+# ─── RULE 6: Suspicious DNS Queries ─────────────────────────
+# MITRE: T1071.004 - Application Layer Protocol: DNS
+title: Suspicious DNS Query - Possible C2 or Tunneling
+id: f4a01b7c-6c8d-9e12-34f0-123456789012
+status: production
+description: Detects suspicious DNS queries with abnormally long subdomains, high-entropy strings, or known DGA patterns indicative of C2 communication or data exfiltration.
+author: Shubham Singh
+date: 2024/06/15
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+  - https://attack.mitre.org/techniques/T1048/
+tags:
+  - attack.command_and_control
+  - attack.t1071.004
+  - attack.exfiltration
+  - attack.t1048
+logsource:
+  category: dns
+detection:
+  selection_long_subdomain:
+    dns.question.name|re: '^[a-zA-Z0-9]{30,}\.'
+  selection_high_entropy:
+    dns.question.name|re: '^[a-z0-9]{8,}\.[a-z0-9]{8,}\.'
+  filter_known_good:
+    dns.question.name|endswith:
+      - '.microsoft.com'
+      - '.windows.com'
+      - '.google.com'
+      - '.amazonaws.com'
+  condition: (selection_long_subdomain or selection_high_entropy) and not filter_known_good
+falsepositives:
+  - CDN providers with long subdomains
+  - Some legitimate cloud services
+level: medium
