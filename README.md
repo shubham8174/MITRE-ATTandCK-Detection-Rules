@@ -156,7 +156,7 @@ Open an issue or submit a pull request!
 MSc Cyber Security — University of Southampton 🇬🇧
 Information Security Analyst | Detection Engineering | Chronicle SIEM
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat&logo=linkedin)](https://linkedin.com/in/shubhamsingh99)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat&logo=linkedin)](https://www.linkedin.com/in/shubham-singh99/)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat&logo=github)](https://github.com/shubham8174)\
 
 
