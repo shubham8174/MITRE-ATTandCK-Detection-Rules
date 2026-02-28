@@ -4,7 +4,6 @@
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-FF0000?style=for-the-badge)
 ![Chronicle](https://img.shields.io/badge/Chronicle-SIEM-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![Splunk](https://img.shields.io/badge/Splunk-Compatible-000000?style=for-the-badge&logo=splunk&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 > A library of production-ready SIGMA detection rules mapped to MITRE ATT&CK techniques — built from real SOC experience triaging 200+ daily alerts on Chronicle SIEM and tested against enterprise telemetry.
 
